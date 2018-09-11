@@ -8,6 +8,9 @@ pythonPackages.buildPythonPackage {
 
   doCheck = false;
   disabled = pythonPackages.pythonOlder "3.5";
+  buildInputs = [
+    pythonPackages.aiohttp
+  ];
 
   meta = {
     homepage = https://github.com/WhatNodyn/Blemish;

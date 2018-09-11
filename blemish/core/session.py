@@ -1,0 +1,79 @@
+# encoding: utf-8
+# Blemish, an alternative client to Epitech's repository management tool
+# Copyright (C) 2018 Neil Cecchini
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+from blemish.core import __version__
+from blemish.core.exc import AuthenticationError, ProtocolError
+from blemish.core.message import make_message
+import urllib.parse as urllib
+import asyncio as aio
+import aiohttp as http
+import json
+import typing as tp
+
+INDEX = 'https://blih.epitech.eu/'
+AGENT = 'blemish-{}'.format(__version__)
+
+class Session:
+    def __init__(self, index: str=INDEX, **kwargs):
+        kwargs.setdefault('headers', {})
+        kwargs['headers'].setdefault('Content-Type', 'application/json')
+        kwargs['headers'].setdefault('User-Agent', AGENT)
+        self._client = http.ClientSession(**kwargs)
+
+        self._index = index
+        self._login = None
+        self._token = None
+
+    def close(self):
+        if not self._client.closed:
+            self._client.close()
+
+    async def authenticate(self, login: str, token: str):
+        if self._login is not None:
+            raise AuthenticationError('Already authenticated', self._login)
+
+        self._login, self._token = login, token
+        try:
+            result = await self.request('GET', 'whoami')
+            if result.get('message', None) != self._login:
+                raise ProtocolError('Authentication failed')
+        except ProtocolError:
+            self.deauthenticate()
+            raise AuthError('Authentication failed') from None
+
+    def deauthenticate(self):
+        if self._login is None:
+            raise AuthenticationError('Not authenticated')
+
+        self._login, self._token = None, None
+
+    async def request(self, method: str, url: str, *, raw: bool=False,
+                      data: tp.Any=None, **kwargs):
+        if self._login is None:
+            raise AuthenticationError('Not authenticated')
+
+        url = urllib.urljoin(self._index, url) if not raw else url
+        message = make_message(data, self._login, self._token)
+        async with self._client.request(method, url, data=message) as response:
+            result = await response.json()
+            if 'error' in result:
+                raise ProtocolError(result['error'] or 'Unknown error')
+            return result
+
+    @property
+    def login(self):
+        return self._login
