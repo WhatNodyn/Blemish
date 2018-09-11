@@ -18,11 +18,11 @@
 from blemish.core import __version__
 from blemish.core.exc import AuthenticationError, ProtocolError
 from blemish.core.message import make_message
-import urllib.parse as urllib
 import asyncio as aio
 import aiohttp as http
 import json
 import typing as tp
+import urllib.parse as urllib
 
 INDEX = 'https://blih.epitech.eu/'
 AGENT = 'blemish-{}'.format(__version__)
@@ -55,12 +55,6 @@ class Session:
             self.deauthenticate()
             raise AuthError('Authentication failed') from None
 
-    def deauthenticate(self):
-        if self._login is None:
-            raise AuthenticationError('Not authenticated')
-
-        self._login, self._token = None, None
-
     async def request(self, method: str, url: str, *, raw: bool=False,
                       data: tp.Any=None, **kwargs):
         if self._login is None:
@@ -73,6 +67,32 @@ class Session:
             if 'error' in result:
                 raise ProtocolError(result['error'] or 'Unknown error')
             return result
+
+    async def get(self, url: str, **kwargs):
+        result = await self.request('GET', url, **kwargs)
+        return result
+
+    async def post(self, url: str, **kwargs):
+        result = await self.request('POST', url, **kwargs)
+        return result
+
+    async def put(self, url: str, **kwargs):
+        result = await self.request('PUT', url, **kwargs)
+        return result
+
+    async def delete(self, url: str, **kwargs):
+        result = await self.request('DELETE', url, **kwargs)
+        return result
+
+    async def patch(self, url: str, **kwargs):
+        result = await self.request('PATCH', url, **kwargs)
+        return result
+
+    def deauthenticate(self):
+        if self._login is None:
+            raise AuthenticationError('Not authenticated')
+
+        self._login, self._token = None, None
 
     @property
     def login(self):
