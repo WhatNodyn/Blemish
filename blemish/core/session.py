@@ -53,7 +53,7 @@ class Session:
                 raise ProtocolError('Authentication failed')
         except ProtocolError:
             self.deauthenticate()
-            raise AuthError('Authentication failed') from None
+            raise AuthenticationError('Authentication failed') from None
 
     async def request(self, method: str, url: str, *, raw: bool=False,
                       data: tp.Any=None, **kwargs):
