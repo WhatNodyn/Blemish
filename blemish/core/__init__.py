@@ -16,3 +16,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from blemish import __version__
+from blemish.core.session import Session
+from blemish.core.repository import Repository
+from blemish.core.message import make_token
