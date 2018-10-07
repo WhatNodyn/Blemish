@@ -17,6 +17,7 @@
 
 from blemish.core import __version__
 from blemish.core.exc import AuthenticationError, ProtocolError
+from blemish.core.repository import RepositoryDict
 from blemish.core.message import make_message
 import asyncio as aio
 import aiohttp as http
@@ -27,7 +28,7 @@ import urllib.parse as urllib
 INDEX = 'https://blih.epitech.eu/'
 AGENT = 'blemish-{}'.format(__version__)
 
-class Session:
+class BaseSession:
     def __init__(self, index: str=INDEX, **kwargs):
         kwargs.setdefault('headers', {})
         kwargs['headers'].setdefault('Content-Type', 'application/json')
@@ -38,9 +39,9 @@ class Session:
         self._login = None
         self._token = None
 
-    def close(self):
+    async def close(self):
         if not self._client.closed:
-            self._client.close()
+            await self._client.close()
 
     async def authenticate(self, login: str, token: str):
         if self._login is not None:
@@ -97,3 +98,16 @@ class Session:
     @property
     def login(self):
         return self._login
+
+class Session(BaseSession):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._repositories = None
+
+    async def authenticate(self, *args, **kwargs):
+        await super().authenticate(*args, **kwargs)
+        self._repositories = await RepositoryDict.fetch(self)
+
+    @property
+    def repositories(self):
+        return self._repositories

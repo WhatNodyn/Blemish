@@ -29,17 +29,18 @@ class Repository:
         self._name, self._session = name, session
 
     @classmethod
-    async def fetch(cls, session: 'blemish.core.Session', name: str) -> 'Repository':
+    async def fetch(cls, session: 'blemish.core.Session', name: str, message=None) -> 'Repository':
         obj = Repository(session, name)
-        await obj.refresh()
+        await obj.refresh(message)
         return obj
 
-    async def refresh(self):
-        try:
-            message = await session.get('repository/{}'.format(self.name))
-        except ProtocolError:
-            raise NotFoundError(repr(self.name)) from None
-        message = message.get('message', {})
+    async def refresh(self, message=None):
+        if message is None:
+            try:
+                message = await self._session.get('repository/{}'.format(self.name))
+            except ProtocolError:
+                raise NotFoundError(repr(self.name)) from None
+            message = message.get('message', {})
 
         self._creation_time = time.gmtime(int(message.get('creation_time', 0)))
         self._uuid = uuid.UUID(message['uuid'])
@@ -69,3 +70,36 @@ class Repository:
     def __str__(self):
         return '<{}Repository {}>' \
             .format('Public ' if self.public else '', self.name)
+
+class RepositoryDict(UserDict):
+    create = Repository.create
+
+    def __init__(self, session: 'blemish.core.Session', *args, **kwargs):
+        super().__init__(args)
+        self._session = session
+
+    @classmethod
+    async def fetch(cls, session: 'blemish.core.Session') -> 'RepositoryDict':
+        obj = RepositoryDict(session)
+        await obj.refresh()
+        return obj
+
+    async def refresh(self):
+        message = (await self._session.get('repositories')).get('repositories', {})
+        for repository in self:
+            if repository not in message:
+                del self[repository]
+
+        for repository in message:
+            if repository not in self.data:
+                self[repository] = await Repository.fetch(self._session, repository, message[repository])
+
+    async def __getitem__(self, key):
+        if key in self:
+            repo = self.data[key]
+            await repo.refresh()
+            return repo
+        raise KeyError(repr(key))
+
+    def __str__(self):
+        return '<RepositoryDict for {}>'.format(self._session.login)
